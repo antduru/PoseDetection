@@ -5,9 +5,10 @@ import collections
 import copy
 import torchvision
 
-class CustomVgg19(nn.Module):
-    def __init__(self, original: torchvision.models.VGG, k=10):
+class CroppedVgg19(nn.Module):
+    def __init__(self, k=10):
         ''' get first k including k's layer -> 0 to 36 '''
+        original = torchvision.models.vgg19(pretrained=True)
         super().__init__()
         features = []
 
@@ -18,18 +19,3 @@ class CustomVgg19(nn.Module):
     
     def forward(self, x):
         return self.features(x)
-
-
-
-
-with torch.no_grad():
-    model = torchvision.models.vgg19(pretrained=True)
-    custom_model = CustomVgg19(model)
-
-    model.eval()
-    custom_model.eval()
-
-    image = torch.zeros((1, 3, 256, 256))
-
-    print(model(image).shape)
-    print(custom_model(image).shape)

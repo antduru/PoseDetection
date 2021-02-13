@@ -3,7 +3,7 @@
 # Default dataset location is next to /yolov3:
 #   /parent_folder
 #     /coco
-#     /yolov3
+#     /yolov3 
 
 
 # download command/URL (optional)
