@@ -19,3 +19,7 @@ class CroppedVgg19(nn.Module):
     
     def forward(self, x):
         return self.features(x)
+
+class CNN1(nn.Module):
+    def __init__(self):
+        raise NotImplementedError('Network not implemented yet!')
