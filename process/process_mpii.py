@@ -5,6 +5,40 @@ import numpy as np
 from PIL import Image
 import json
 
+'''
+This generates fully annotated images from the MPII matlab file. JSON architecture is given below;
+
+[
+    {
+        "image_name": string,
+        "is_train": boolean,
+        "has_people": boolean,
+        "people": 
+        [
+            {
+                "type": integer,
+                "head_coordinates": 
+                {
+                    "x1": integer, 
+                    "y1": integer, 
+                    "x2": integer, 
+                    "y2": integer 
+                },
+                "joints": 
+                [ 
+                    {
+                        "x": integer, 
+                        "y": integer, 
+                        "id": integer, 
+                        "is_visible": boolean 
+                    } 
+                ]
+            }
+        ]
+    }
+]
+'''
+
 
 def main():
     print('Reading matlab file')
