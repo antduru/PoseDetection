@@ -1,4 +1,3 @@
 *.pt
-resulting.json
-
 annotations/mpii/fullannotations.json
+images/mpii/
