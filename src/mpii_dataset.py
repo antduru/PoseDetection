@@ -103,7 +103,7 @@ if __name__ == '__main__':
     dataset = MPIIDataset(json_path, image_path)
 
     # These values are optimal for me!
-    torch_dataloader = DataLoader(dataset, batch_size=64, shuffle=False, num_workers=4, collate_fn=lambda x: x)
+    torch_dataloader = DataLoader(dataset, batch_size=256, shuffle=True, num_workers=4, collate_fn=lambda x: x)
 
 
     for batch in tqdm(torch_dataloader):
