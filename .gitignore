@@ -1,3 +1,4 @@
 *.pt
 annotations/mpii/fullannotations.json
 images/mpii/
+images/mpii_resized/

@@ -250,6 +250,15 @@ def main():
 
         for person_anno in people:
             if person_anno['type'] != 3: return 
+
+            person_anno['head_coordinates']['x1'] //= 2
+            person_anno['head_coordinates']['y1'] //= 2
+            person_anno['head_coordinates']['x2'] //= 2
+            person_anno['head_coordinates']['y2'] //= 2
+
+            for joint in person_anno['joints']:
+                joint['x'] //= 2
+                joint['y'] //= 2
         
         json_object['has_people'] = len(people) != 0
         train_list.append(json_object)
