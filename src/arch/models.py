@@ -131,17 +131,16 @@ class CNN1(nn.Module):
         out4a = self.stage4(out3)
         out4 = torch.cat([out4a, in1], 1)
 
-        out5a = self.stage5(out4)
-        out5 = torch.cat([out5a, in1], 1)
+        out5 = self.stage5(out4)
 
-        return out5
+        return out5, in1
 
 if __name__ == '__main__':
     cnn1 = CNN1()
 
     image = torch.zeros((1, 512, 120, 120))
 
-    out = cnn1(image)
+    out, image = cnn1(image)
 
     print(out.shape)
 
