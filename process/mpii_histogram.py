@@ -7,7 +7,7 @@ import numpy as np
 
 def get_joint(joint_id, joint_list):
     for joint in joint_list:
-        if joint['id'] = joint_id: return joint
+        if joint['id'] == joint_id: return joint
     return None
 
 
@@ -37,7 +37,10 @@ if __name__ == '__main__':
         image_name = image_object['image_name']
 
         for person_object in image_object['people']:
-
+            r_elbow = get_joint(joint_dict['r_elbow'], person_object['joints'])
+            r_wrist = get_joint(joint_dict['r_elbow'], person_object['joints'])
+            if r_elbow and r_wrist:
+                pass # calculate distance and append it into the histogram
 
     
 

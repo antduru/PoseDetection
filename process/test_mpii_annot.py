@@ -73,7 +73,7 @@ def main():
     with open(joint_path, 'r') as fp:
         joint_dict = json.load(fp)
 
-    image_object = json_list[53]
+    image_object = json_list[28774]
     print(image_object['image_name'])
     image_file = os.path.join(images_path, image_object['image_name'])
     image_array = np.array(Image.open(image_file))

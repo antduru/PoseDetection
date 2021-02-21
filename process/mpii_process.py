@@ -151,7 +151,7 @@ def main():
                     x1, y1, x2, y2 = row_st1_item[:4]
                     x1, y1, x2, y2 = x1.item(), y1.item(), x2.item(), y2.item()
                     joint_object = {
-                        'type': 3,
+                        'type': 4,
                         'head_coordinates': {
                             'x1': x1,
                             'y1': y1,
@@ -196,7 +196,7 @@ def main():
                     x1, y1, x2, y2 = row_st1_item[:4]
                     x1, y1, x2, y2 = x1.item(), y1.item(), x2.item(), y2.item()
                     joint_object = {
-                        'type': 3,
+                        'type': 5,
                         'head_coordinates': {
                             'x1': x1,
                             'y1': y1,
@@ -249,7 +249,7 @@ def main():
         # if len(people) == 0: return # this should not be in test set
 
         for person_anno in people:
-            if person_anno['type'] != 3: return 
+            if person_anno['type'] < 3: return 
 
             scale = 1.25
 
