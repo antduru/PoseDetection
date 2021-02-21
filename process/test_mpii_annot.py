@@ -17,7 +17,7 @@ def plot_line(coor1, coor2):
     if coor1 and coor2: 
         x1, y1 = coor1
         x2, y2 = coor2
-        plt.plot([2*x1, 2*x2], [2*y1, 2*y2], marker = 'o')
+        plt.plot([x1, x2], [y1, y2], marker = 'o')
 
 def present_pose(image_array, people_list, joint_dict):
     plt.figure(figsize=(10, 20))
@@ -73,7 +73,8 @@ def main():
     with open(joint_path, 'r') as fp:
         joint_dict = json.load(fp)
 
-    image_object = json_list[0]
+    image_object = json_list[53]
+    print(image_object['image_name'])
     image_file = os.path.join(images_path, image_object['image_name'])
     image_array = np.array(Image.open(image_file))
     present_pose(image_array, image_object['people'], joint_dict)

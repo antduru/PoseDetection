@@ -18,12 +18,12 @@ if __name__ == '__main__':
     mapp_path = './images/mpii_map'
 
     joint_histogram = {
-        'u_arm': [],
-        'l_arm': [],
-        'u_leg': [],
-        'l_leg': [],
-        'body': [],
-        'head': [],
+        'u_arm': np.zeros((1000,)),
+        'l_arm': np.zeros((1000,)),
+        'u_leg': np.zeros((1000,)),
+        'l_leg': np.zeros((1000,)),
+        'body': np.zeros((1000,)),
+        'head': np.zeros((1000,)),
     }
 
     with open(json_path, 'r') as fp:
