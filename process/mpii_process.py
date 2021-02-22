@@ -40,15 +40,14 @@ This generates fully annotated images from the MPII matlab file. JSON architectu
 '''
 
 def has(sett, dictt):
-    n = 0
     for sette in sett:
-        if not sette in dictt: continue
-        n += 1
-    return n == len(sett)
+        if not sette in dictt: return False
+    return True
 
 def main():
     rawjson_path = './annotations/mpii/raw_annotations.json'
     processedjson_path = './annotations/mpii/fullannotations.json'
+    scale_factor = 2
 
     print('Reading raw json file')
 
@@ -70,54 +69,74 @@ def main():
                 "has_people": False,
                 'people': []
             }
+            image_object_people = []
+            
+    #         if '076161962.jpg' not in anno['image']['name']: continue
+            
+            exclude = False
+            
+            if len(anno['annorect']) == 0: continue
 
             for person in anno['annorect']:
-                if not has(person_should_include, person): continue
-                    
+                if not has(person_should_include, person): 
+                    exclude = True
+                    break
+                
+                if isinstance(person['scale'], list):
+                    exclude = True
+                    break
+
                 person_object = {
                     'head_coordinates': {
-                        "x1": int(person['x1']), 
-                        "y1": int(person['y1']), 
-                        "x2": int(person['x2']), 
-                        "y2": int(person['y2'] )
+                        "x1": int(person['x1'] / scale_factor), 
+                        "y1": int(person['y1'] / scale_factor), 
+                        "x2": int(person['x2'] / scale_factor), 
+                        "y2": int(person['y2'] / scale_factor)
                     },
+                    'scale': float(person['scale']),
                     'joints': []
                 }
-                
-                if len(person['annopoints']) == 0: continue # no one in the image
-                
+
+                if len(person['annopoints']) == 0: 
+                    exclude = True
+                    continue
+
                 if not isinstance(person['annopoints']['point'], list):
                     person_joint_list_raw = [person['annopoints']['point']]
                 else:
                     person_joint_list_raw = person['annopoints']['point']
-                
+                    
+
+
                 for joint in person_joint_list_raw:
                     if not has({'is_visible'}, joint): 
                         joint['is_visible'] = False
-                    
+
                     if isinstance(joint['is_visible'], str):
                         is_visible = '1' in joint['is_visible']
                     elif isinstance(joint['is_visible'], list):
                         is_visible = False
                     elif isinstance(joint['is_visible'], bool):
                         is_visible = joint['is_visible']
-                    
+
                     person_object['joints'].append({
-                        'x': int(joint['x']),
-                        'y': int(joint['y']),
+                        'x': int(joint['x'] / scale_factor),
+                        'y': int(joint['y'] / scale_factor),
                         'id': int(joint['id']),
                         'is_visible': is_visible
                     })
-                image_object['people'].append(person_object)
-
-            image_object['has_people'] = len(image_object['people']) == 0
-            processed_json.append(image_object)
+                image_object_people.append(person_object)
+            
+            if not exclude:
+                image_object['people'] = image_object_people
+                image_object['has_people'] = len(image_object['people']) != 0
+                processed_json.append(image_object)
 
     print('Saving processed json file')
 
     with open(processedjson_path, 'w+') as fp:
         json.dump(processed_json, fp)
-    
+
     print('Processing finished!')
 
     num_original = len(raw_json['annolist'])

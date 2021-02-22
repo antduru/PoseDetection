@@ -4,3 +4,7 @@ images/mpii/
 images/mpii_resized/
 
 annotations/mpii/raw_annotations.json
+
+.ipynb_checkpoints/
+
+*.pyc
