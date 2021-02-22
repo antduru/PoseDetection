@@ -2,3 +2,5 @@
 annotations/mpii/fullannotations.json
 images/mpii/
 images/mpii_resized/
+
+annotations/mpii/raw_annotations.json
