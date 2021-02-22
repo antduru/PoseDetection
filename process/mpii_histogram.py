@@ -12,14 +12,14 @@ def get_joint(joint_id, joint_list):
     return None
 
 def distance(j1, j2):
-    return int(math.sqrt((j1['x'] - j2['x'])**2 + (j1['y'] - j2['y'])**2))
+    return math.sqrt((j1['x'] - j2['x'])**2 + (j1['y'] - j2['y'])**2)
 
-def add_histogram(jistogram_list, joint1, joint2):
+def add_histogram(jistogram_list, joint1, joint2, scale):
     if not joint1 or not joint2: return False
     if not joint1['is_visible'] or not joint2['is_visible']: return False
 
-    int_dist = distance(joint1, joint2)
-    jistogram_list[int_dist] += 1
+    dist = distance(joint1, joint2) / (scale**2)
+    jistogram_list[int(dist)] += 1
     return True
 
 
@@ -29,6 +29,8 @@ if __name__ == '__main__':
     histogram_path = './annotations/mpii/histogram.json'
     images_path = './images/mpii_resized'
     mapp_path = './images/mpii_map'
+
+    normalize = False
 
     joint_histogram = {
         'u_arm': np.zeros((1000,), dtype=np.int32),
@@ -65,22 +67,24 @@ if __name__ == '__main__':
             l_hip = get_joint(joint_dict['l_hip'], person_object['joints'])
 
             head_top = get_joint(joint_dict['head_top'], person_object['joints'])
-            upper_neck = get_joint(joint_dict['upper_neck'], person_object['joints'])
+            thorax = get_joint(joint_dict['thorax'], person_object['joints'])
+
+            scale = 1 if normalize else person_object['scale']
 
             # arms
-            add_histogram(joint_histogram['l_arm'], r_elbow, r_wrist)
-            add_histogram(joint_histogram['u_arm'], r_elbow, r_shoulder)
-            add_histogram(joint_histogram['l_arm'], l_elbow, l_wrist)
-            add_histogram(joint_histogram['u_arm'], l_elbow, l_shoulder)
+            add_histogram(joint_histogram['l_arm'], r_elbow, r_wrist, scale)
+            add_histogram(joint_histogram['u_arm'], r_elbow, r_shoulder, scale)
+            add_histogram(joint_histogram['l_arm'], l_elbow, l_wrist, scale)
+            add_histogram(joint_histogram['u_arm'], l_elbow, l_shoulder, scale)
 
             # legs
-            add_histogram(joint_histogram['l_leg'], r_knee, r_ankle)
-            add_histogram(joint_histogram['u_leg'], r_knee, r_hip)
-            add_histogram(joint_histogram['l_leg'], l_knee, l_ankle)
-            add_histogram(joint_histogram['u_leg'], l_knee, l_hip)
+            add_histogram(joint_histogram['l_leg'], r_knee, r_ankle, scale)
+            add_histogram(joint_histogram['u_leg'], r_knee, r_hip, scale)
+            add_histogram(joint_histogram['l_leg'], l_knee, l_ankle, scale)
+            add_histogram(joint_histogram['u_leg'], l_knee, l_hip, scale)
 
             # head
-            add_histogram(joint_histogram['head'], head_top, upper_neck)
+            add_histogram(joint_histogram['head'], head_top, thorax, scale)
 
             # body
             # havent added yet!
