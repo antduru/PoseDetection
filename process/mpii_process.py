@@ -15,11 +15,22 @@ This generates fully annotated images from the MPII matlab file. JSON architectu
         "image_name": string,
         "is_train": boolean,
         "has_people": boolean,
+        "image_shape": {
+            "width": integer,
+            "height": integer
+        }
         "people": 
         [
             {
                 "type": integer,
                 "head_coordinates": 
+                {
+                    "x1": integer, 
+                    "y1": integer, 
+                    "x2": integer, 
+                    "y2": integer 
+                },
+                "bbox": 
                 {
                     "x1": integer, 
                     "y1": integer, 

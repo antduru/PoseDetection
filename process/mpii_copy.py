@@ -6,7 +6,6 @@ from PIL import Image
 from torchvision.transforms.functional import to_tensor, to_pil_image
 
 old_image_path = '/media/ubombar/Backup/datasets/original/mpii_human_pose_v1_u12_2/images'
-# new_image_path = './images/mpii'
 new_image_path = './images/mpii_resized'
 json_path = './annotations/mpii/fullannotations.json'
 
