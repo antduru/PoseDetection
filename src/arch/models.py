@@ -1,146 +1,103 @@
 import torch
 import torch.nn as nn 
-import torch.nn.functional as F 
 import torchvision
 from collections import OrderedDict
+from torchvision.transforms.transforms import F
+from PIL import Image
 import copy
+import numpy as np 
+import os 
+import json
 
-def generate(block_list):
-    length = len(block_list)
-    ll = []
+SIZE = (256, 256)
 
-    for module_name, params in block_list:
-        if 'conv' in module_name: ll.append(nn.Conv2d(*params))
-        elif 'pool' in module_name: ll.append(nn.MaxPool2d(*params))
-        elif 'relu' in module_name: ll.append(nn.ReLU())
-    
-    return nn.Sequential(*ll)
+def resized_crop(original_tensor, bbox):
+    top = bbox['y1']
+    left = bbox['x1']
+    height = bbox['y2'] - bbox['y1']
+    width = bbox['x2'] - bbox['x1']
+    crop = F.resized_crop(original_tensor, top, left, height, width, SIZE)
+    return crop.resize(1, 3, *SIZE)
 
-class CroppedVgg19(nn.Module):
-    def __init__(self, k=10):
-        ''' 
-            Get first k including k's layer -> 0 to 36
-            k=10 gives 512 channels
-        '''
-        original = torchvision.models.vgg19(pretrained=True)
-        super().__init__()
-        features = []
-
-        for i, module in enumerate(next(original.children())):
-            features.append(module)
-
-        self.features = nn.Sequential(*features)
-    
-    def forward(self, x):
-        return self.features(x)
-
-class CNN1(nn.Module):
+class SinglePersonPoseEtimator(nn.Module):
     def __init__(self):
-        super(CNN1, self).__init__()
-        # conv (in, out, kernel, padding, stride)
-        # pool (kernel, padding, stride)
-        # relu ()
-
-        stages = {}
-
-        self.stage0 = generate([
-            ('conv', (512, 256, 3, 1, 1)), # block 1
-            ('relu', (0,)),
-            ('conv', (256, 256, 3, 1, 1)), # block 2
-            ('relu', (0,)),
-            ('conv', (256, 256, 3, 1, 1)), # block 3
-            ('relu', (0,)),
-            # ('pool', (2, 1, 0)),
-            ('conv', (256, 6, 3, 1, 1)), # block 4
+        ''' Architecture is similar to Yolov1 '''
+        super().__init__()
+        self.conv1 = nn.Sequential(*[
+            nn.Conv2d(3, 64, 7, 2, 0),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        ])
+        self.conv2 = nn.Sequential(*[
+            nn.Conv2d(64, 200, 3, 1, 0),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        ])
+        self.conv3 = nn.Sequential(*[
+            nn.Conv2d(200, 128, 1, 1, 0),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(256, 256, 1, 1, 0),
+            nn.ReLU(),
+            nn.Conv2d(256, 512, 3, 1, 1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        ])
+        self.conv4 = nn.Sequential(*[
+            nn.Conv2d(512, 256, 1, 1, 0), # 1
+            nn.ReLU(),
+            nn.Conv2d(256, 512, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(512, 256, 1, 1, 0), # 2
+            nn.ReLU(),
+            nn.Conv2d(256, 512, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(512, 256, 1, 1, 0), # 3
+            nn.ReLU(),
+            nn.Conv2d(256, 512, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(512, 256, 1, 1, 0), # 4
+            nn.ReLU(),
+            nn.Conv2d(256, 512, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(512, 512, 1, 1, 0),
+            nn.ReLU(),
+            nn.Conv2d(512, 1024, 3, 1, 1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        ])
+        self.conv5 = nn.Sequential(*[
+            nn.Conv2d(1024, 512, 1, 1, 0), # 1
+            nn.ReLU(),
+            nn.Conv2d(512, 1024, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(1024, 512, 1, 1, 0), # 2
+            nn.ReLU(),
+            nn.Conv2d(512, 1024, 3, 1, 1),
+            nn.ReLU(),
+            nn.Conv2d(1024, 2048, 3, 1, 0),
+            nn.ReLU(),
+            nn.Conv2d(2048, 2048, 3, 1, 0),
+            nn.ReLU(),
+            nn.Conv2d(2048, 2048, 1, 1, 0),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        ])
+        self.linear1 = nn.Sequential(*[
+            nn.Flatten(),
+            nn.Linear(2048, 3072),
+            nn.Tanh(),
+            nn.Linear(3072, 3072)
         ])
 
-        self.stage1 = generate([
-            ('conv', (512+6, 128, 3, 1, 1)), # block 1
-            ('relu', (0,)),
-            ('conv', (128, 128, 3, 1, 1)), # block 2
-            ('relu', (0,)),
-            ('conv', (128, 128, 3, 1, 1)), # block 3
-            ('relu', (0,)),
-            ('conv', (128, 512, 1, 1, 0)), # block 4
-            ('relu', (0,)),
-            ('conv', (512, 6, 1, 1, 0)),   # block 5
-        ])
-
-        self.stage2 = generate([
-            ('conv', (512+6, 128, 7, 1, 3)),   # block 1
-            ('relu', (0,)),
-            ('conv', (128, 128, 7, 1, 3)), # block 2
-            ('relu', (0,)),
-            ('conv', (128, 128, 7, 1, 3)), # block 3
-            ('relu', (0,)),
-            ('conv', (128, 512, 1, 1, 0)), # block 4
-            ('relu', (0,)),
-            ('conv', (512, 6, 1, 1, 0)),   # block 5
-        ])
-
-        self.stage3 = generate([
-            ('conv', (512+6, 128, 7, 1, 3)),   # block 1
-            ('relu', (0,)),
-            ('conv', (128, 128, 7, 1, 3)), # block 2
-            ('relu', (0,)),
-            ('conv', (128, 128, 7, 1, 3)), # block 3
-            ('relu', (0,)),
-            ('conv', (128, 512, 1, 1, 0)), # block 4
-            ('relu', (0,)),
-            ('conv', (512, 6, 1, 1, 0)),   # block 5
-        ])
-
-        self.stage4 = generate([
-            ('conv', (512+6, 128, 7, 1, 3)),   # block 1
-            ('relu', (0,)),
-            ('conv', (128, 128, 7, 1, 3)), # block 2
-            ('relu', (0,)),
-            ('conv', (128, 128, 7, 1, 3)), # block 3
-            ('relu', (0,)),
-            ('conv', (128, 512, 1, 1, 0)), # block 4
-            ('relu', (0,)),
-            ('conv', (512, 6, 1, 1, 0)),   # block 5
-        ])
-
-        self.stage5 = generate([
-            ('conv', (512+6, 128, 7, 1, 3)),   # block 1
-            ('relu', (0,)),
-            ('conv', (128, 128, 7, 1, 3)), # block 2
-            ('relu', (0,)),
-            ('conv', (128, 128, 7, 1, 3)), # block 3
-            ('relu', (0,)),
-            ('conv', (128, 512, 1, 1, 0)), # block 4
-            ('relu', (0,)),
-            ('conv', (512, 6, 1, 1, 0)),   # block 5
-        ])
-    
-    def forward(self, in1):
-        
-        out0a = self.stage0(in1)
-        out0 = torch.cat([out0a, in1], 1)
-
-        out1a = self.stage1(out0)
-        out1 = torch.cat([out1a, in1], 1)
-
-        out2a = self.stage2(out1)
-        out2 = torch.cat([out2a, in1], 1)
-
-        out3a = self.stage3(out2)
-        out3 = torch.cat([out3a, in1], 1)
-
-        out4a = self.stage4(out3)
-        out4 = torch.cat([out4a, in1], 1)
-
-        out5 = self.stage5(out4)
-
-        return out5, in1
-
-if __name__ == '__main__':
-    cnn1 = CNN1()
-
-    image = torch.zeros((1, 512, 120, 120))
-
-    out, image = cnn1(image)
-
-    print(out.shape)
-
+    def forward(self, original_tensor, bboxes, bbox_index):
+        out0 = resized_crop(original_tensor, bboxes[bbox_index])
+        out1 = self.conv1(out0)
+        out2 = self.conv2(out1)
+        out3 = self.conv3(out2)
+        out4 = self.conv4(out3)
+        out5 = self.conv5(out4)
+        out6 = self.linear1(out5)
+        out7 = torch.reshape(out6, (32, 16, 6))
+        return out7
