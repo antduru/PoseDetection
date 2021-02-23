@@ -4,6 +4,8 @@ from scipy.io import loadmat
 import numpy as np
 from PIL import Image
 import json
+from tqdm import tqdm
+import os 
 
 '''
 This generates fully annotated images from the MPII matlab file. JSON architecture is given below;
@@ -38,6 +40,41 @@ This generates fully annotated images from the MPII matlab file. JSON architectu
     }
 ]
 '''
+def find(joint_list, lambda_fn):
+    _ss = joint_list[0]
+    for e in joint_list:
+        if not lambda_fn(e, _ss): continue
+        _ss = e
+    return _ss
+
+def head_width(head_c):
+    width = abs(head_c['x1'] - head_c['x2']) 
+    height = abs(head_c['y1'] - head_c['y2'])
+    return (width + height) // 4
+
+def get_bbox(person_object, image_object):
+    c = head_width(person_object['head_coordinates'])
+    
+    minx = find(person_object['joints'], lambda c, e: c['x'] < e['x'])['x']
+    maxx = find(person_object['joints'], lambda c, e: c['x'] > e['x'])['x']
+    miny = find(person_object['joints'], lambda c, e: c['y'] < e['y'])['y']
+    maxy = find(person_object['joints'], lambda c, e: c['y'] > e['y'])['y']
+    
+    return {
+        'x1': max(minx - c, 0),
+        'y1': max(miny - c, 0),
+        'x2': min(maxx + c, image_object['image_shape']['width']),
+        'y2': min(maxy + 2*c, image_object['image_shape']['height'])
+    }
+
+def get_image_shape_dict(old_image_path, image_name, scale_factor):
+    image_path = os.path.join(old_image_path, image_name)
+
+    image_array = np.array(Image.open(image_path))
+    return {
+        'width': image_array.shape[1] // scale_factor,
+        'height': image_array.shape[0] // scale_factor
+    }
 
 def has(sett, dictt):
     for sette in sett:
@@ -45,6 +82,7 @@ def has(sett, dictt):
     return True
 
 def main():
+    old_image_path = '/media/ubombar/Backup/datasets/original/mpii_human_pose_v1_u12_2/images'
     rawjson_path = './annotations/mpii/raw_annotations.json'
     processedjson_path = './annotations/mpii/fullannotations.json'
     scale_factor = 2
@@ -59,7 +97,7 @@ def main():
     processed_json = []
     person_should_include = {'annopoints', 'x1', 'y1', 'x2', 'y2', 'scale'}
 
-    for anno, is_train in zip(raw_json['annolist'], raw_json['img_train']):
+    for anno, is_train in zip(tqdm(raw_json['annolist']), raw_json['img_train']):
         if is_train == 0:
             continue
         else:
@@ -128,9 +166,14 @@ def main():
                 image_object_people.append(person_object)
             
             if not exclude:
+                image_object['image_shape'] = get_image_shape_dict(old_image_path, image_object['image_name'], scale_factor)
                 image_object['people'] = image_object_people
                 image_object['has_people'] = len(image_object['people']) != 0
                 processed_json.append(image_object)
+
+    for image_object in processed_json: # this will calculate the bbouxes
+        for person_object in image_object['people']:
+            person_object['bbox'] = get_bbox(person_object, image_object)
 
     print('Saving processed json file')
 
