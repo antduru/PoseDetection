@@ -95,8 +95,8 @@ class SinglePersonPoseEtimator(nn.Module):
         self.relu1 = nn.ReLU()
         self.tanh1 = nn.Tanh()
 
-    def forward(self, original_tensor, bboxes, bbox_index):
-        out0 = resized_crop(original_tensor, bboxes[bbox_index])
+    def forward(self, original_tensor, bbox):
+        out0 = resized_crop(original_tensor, bbox)
         out1 = self.conv1(out0)
         out2 = self.conv2(out1)
         out3 = self.conv3(out2)
@@ -106,7 +106,7 @@ class SinglePersonPoseEtimator(nn.Module):
         out7 = torch.reshape(out6, (OUT_CLASS, 16, 6))
         helper1 = self.relu1(out7[:, :, (0, 1)])     # activate x and y
         helper2 = self.tanh1(out7[:, :, (2, 3)])     # activate dx and dy
-        helper3 = self.sigmoid1(out7[:, :, (4, 5)])  # activate c and m
+        helper3 = self.sigmoid1(out7[:, :, (4, 5)])  # activate v and m
         out8 = torch.cat([helper1, helper2, helper3], dim=2)
         return out8
 

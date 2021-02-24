@@ -21,9 +21,13 @@ class CustomLoss():
         self.cross = MyCrossEntropyOperation()
         self.means = nn.MSELoss()
     
-    def __call__(self, output_table, truth_table):
-        output_table = output_table.reshape(-1, 6)
-        truth_table = truth_table.reshape(-1, 6)
+    def __call__(self, output_table, truth_table, bbox):
+        truth_table = truth_table.clone()
+        truth_table[:, :, 0] = (bbox['x2'] - bbox['x1']) * (truth_table[:, :, 0] - bbox['x1']) / 256 # convert this to relative coordinates
+        truth_table[:, :, 1] = (bbox['y2'] - bbox['y1']) * (truth_table[:, :, 1] - bbox['y1']) / 256
+
+        output_table = output_table[5].reshape(-1, 6)
+        truth_table = truth_table[5].reshape(-1, 6)
 
         true_mask = truth_table[:, 5]
         out_mask = output_table[:, 5]
