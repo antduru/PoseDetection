@@ -10,6 +10,7 @@ import os
 import json
 
 SIZE = (256, 256)
+OUT_CLASS = 9
 
 def resized_crop(original_tensor, bbox):
     top = bbox['y1']
@@ -86,10 +87,13 @@ class SinglePersonPoseEtimator(nn.Module):
         ])
         self.linear1 = nn.Sequential(*[
             nn.Flatten(),
-            nn.Linear(2048, 3072),
-            nn.Tanh(),
-            nn.Linear(3072, 3072)
+            nn.Linear(2048, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, (OUT_CLASS * 16 * 6))
         ])
+        self.sigmoid1 = nn.Sigmoid()
+        self.relu1 = nn.ReLU()
+        self.tanh1 = nn.Tanh()
 
     def forward(self, original_tensor, bboxes, bbox_index):
         out0 = resized_crop(original_tensor, bboxes[bbox_index])
@@ -99,5 +103,21 @@ class SinglePersonPoseEtimator(nn.Module):
         out4 = self.conv4(out3)
         out5 = self.conv5(out4)
         out6 = self.linear1(out5)
-        out7 = torch.reshape(out6, (32, 16, 6))
-        return out7
+        out7 = torch.reshape(out6, (OUT_CLASS, 16, 6))
+        helper1 = self.relu1(out7[:, :, (0, 1)])     # activate x and y
+        helper2 = self.tanh1(out7[:, :, (2, 3)])     # activate dx and dy
+        helper3 = self.sigmoid1(out7[:, :, (4, 5)])  # activate c and m
+        out8 = torch.cat([helper1, helper2, helper3], dim=2)
+        return out8
+
+'''
+    The output of the model is 9x16x6
+
+    9 means the number of estimations, current, up, down, left, right and diagonals
+    16 means the joints,
+    6 means; x, y coordinates, xd, yd direction vectors, c confidence, and m binary mask.
+        x, y: coordinates of the joint
+        xd, yd: direction vector of the joint. For example, knees point to the hips. (See the pointing diagram)
+        c: confidence value
+        m: binary mask, if network is not sure this is detected, then fires this neuron.
+'''
