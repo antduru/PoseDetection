@@ -51,8 +51,20 @@ def dist(person_object, from_k, to_k, joint_dict, epsilon=0.001):
     if from_joint and to_joint:
         d_x, d_y = (to_joint['x'] - from_joint['x']), (to_joint['y'] - from_joint['y'])
         length = math.sqrt(d_x**2 + d_y**2)
+
         if abs(length) < epsilon:
             return (d_x / epsilon), (d_y / epsilon)
+        # print((d_x / length), (d_y / length))
         return (d_x / length), (d_y / length)
 
     return 0, 0
+
+def is_joint_inside(current_person, joint):
+    bbox = current_person['bbox']
+    x1 = bbox['x1']
+    y1 = bbox['y1']
+    x2 = bbox['x2']
+    y2 = bbox['y2']
+    jx, jy = joint['x'], joint['y']
+
+    return (jx > x1 and jx < x2) and (jy > y1 and jy < y2)

@@ -5,6 +5,7 @@ from tqdm import tqdm
 from PIL import Image
 import util as util
 from shutil import copyfile
+import torch
 
 '''
     This calculates the joint table for each person in the dataset. The output of this is
@@ -14,6 +15,7 @@ from shutil import copyfile
 json_path = './annotations/mpii/fullannotations.json'
 joint_dict_path = './annotations/mpii/jointdict.json'
 joint_table_path = './annotations/mpii/jointtable.json'
+joint_table_tensor_path = './images/mpii_table/jointtable.pt'
 IOU = 0.5
 
 with open(json_path, 'r') as fp:
@@ -48,7 +50,8 @@ def generate_joint_table(current_person_object, joint_dict):
     # v: is visible
     # c: confidence, 1 sure, 0 not sure, loss is according to it!
 
-    joint_table = [[[0, 0, 0, 0, 0, 0] for _ in range(16)] for _ in range(9)]
+    # joint_table = [[[0, 0, 0, 0, 0, 0] for _ in range(16)] for _ in range(9)] do not store this on json!
+    joint_table = torch.zeros((1, 9, 16, 6), dtype=torch.float)
 
     for k in joint_dict:
         joint = util.get_joint(joint_dict[k], current_person_object['joints'])
@@ -61,14 +64,40 @@ def generate_joint_table(current_person_object, joint_dict):
 
             d_x, d_y = generate_affinity_vector(current_person_object, k, joint_dict)
 
-            joint_table[5][joint_id] = [pos_x, pos_y, d_x, d_y, v, 1]
+            joint_table[0, 5, joint_id, 0] = pos_x
+            joint_table[0, 5, joint_id, 1] = pos_y
+            joint_table[0, 5, joint_id, 2] = d_x
+            joint_table[0, 5, joint_id, 3] = d_y
+            joint_table[0, 5, joint_id, 4] = v
+            joint_table[0, 5, joint_id, 5] = 1
 
     return joint_table
 
 def mutate_joint_table(joint_table, current_person, neigbor_person, diagonal_id, joint_dict):
-    pass 
+    for k in joint_dict:
+        joint = util.get_joint(joint_dict[k], neigbor_person['joints'])
+
+        if not joint: continue
+        if not util.is_joint_inside(current_person, joint): continue
+
+        joint_id = joint['id']
+        pos_x = joint['x']
+        pos_y = joint['y']
+        v = 1 if joint['is_visible'] else 0
+
+        d_x, d_y = generate_affinity_vector(neigbor_person, k, joint_dict)
+
+        joint_table[0, diagonal_id - 1, joint_id, 0] = pos_x
+        joint_table[0, diagonal_id - 1, joint_id, 1] = pos_y
+        joint_table[0, diagonal_id - 1, joint_id, 2] = d_x
+        joint_table[0, diagonal_id - 1, joint_id, 3] = d_y
+        joint_table[0, diagonal_id - 1, joint_id, 4] = v
+        joint_table[0, diagonal_id - 1, joint_id, 5] = 1
+
+    return joint_table 
 
 joint_table_list = []
+joint_table_tensor_array = []
 
 for image_object in tqdm(annotation_list):
     people_joint_list = []
@@ -93,9 +122,10 @@ for image_object in tqdm(annotation_list):
                 neigbor_person_object, 
                 diagonal_id, 
                 joint_dict)
-
+        
+        joint_table_tensor_array.append(joint_table)
         people_joint_list.append({
-            'joint_table': joint_table,
+            'i': len(joint_table_tensor_array) - 1,
             'num_occlusions': num_occlusions
         }) # add joint table for ith person
     joint_table_list.append({
@@ -104,8 +134,12 @@ for image_object in tqdm(annotation_list):
     })
     # break
 
-print('Done! Saving Generated JSON file...')
+print('Done! Saving Joint Table and Generated JSON file...')
+
 with open(joint_table_path, 'w+') as fp:
     json.dump(joint_table_list, fp)
 
+torch.save(torch.cat(joint_table_tensor_array), joint_table_tensor_path)
+
 print('Processing finished!')
+print("Reconstructed {} people's joint table.".format(len(joint_table_tensor_array)))
