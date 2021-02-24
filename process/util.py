@@ -38,3 +38,21 @@ def diagonal_id(bbox1, bbox2):
     
     mapper = [6, 3, 2, 1, 4, 7, 8, 9]
     return mapper[index] # mapps the result here
+
+def get_joint(joint_id, joint_list):
+    for joint in joint_list:
+        if joint['id'] == joint_id: return joint
+    return None
+
+def dist(person_object, from_k, to_k, joint_dict, epsilon=0.001):
+    from_joint = get_joint(joint_dict[from_k], person_object['joints'])
+    to_joint = get_joint(joint_dict[to_k], person_object['joints'])
+
+    if from_joint and to_joint:
+        d_x, d_y = (to_joint['x'] - from_joint['x']), (to_joint['y'] - from_joint['y'])
+        length = math.sqrt(d_x**2 + d_y**2)
+        if abs(length) < epsilon:
+            return (d_x / epsilon), (d_y / epsilon)
+        return (d_x / length), (d_y / length)
+
+    return 0, 0

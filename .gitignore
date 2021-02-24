@@ -8,3 +8,5 @@ annotations/mpii/raw_annotations.json
 .ipynb_checkpoints/
 
 *.pyc
+
+annotations/mpii/jointtable.json
