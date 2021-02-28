@@ -13,100 +13,55 @@ from collections.abc import Iterable
 import random
 import math
 
-# @DeprecationWarning('I wrote this to test the speed no not use this!')
-# class CustomDataloader():
-#     '''
-#         I wrote this to test the speed no not use this!
-#     '''
-#     def __init__(self, dataset:Dataset, bounds:tuple, batch_size:int=1, shuffle:bool=False):
-#         assert batch_size > 0
-#         assert len(bounds) == 2
+def get_bounds(FULL_ANNOTATION_PATH, PERCENT_TRAIN, PERCENT_VAL, PERCENT_TEST):
+    num_images = how_many_images(FULL_ANNOTATION_PATH)
 
-#         self.dataset = dataset
-#         self.first, self.last = bounds
-#         self.order = [i for i in range(self.first, self.last, 1)]
+    train_bound = (0, int(num_images * PERCENT_TRAIN))
+    val_bound = (int(num_images * PERCENT_TRAIN), int(num_images * (PERCENT_VAL + PERCENT_TRAIN)))
+    test_bound = (int(num_images * (PERCENT_VAL + PERCENT_TRAIN)), num_images)
 
-#         if shuffle:
-#             random.shuffle(self.order)
-        
-#         self.batch_i = 0
-#         self.batch_size = batch_size
-    
-#     def __iter__(self):
-#         self.batch_i = 0
-#         return self
+    return train_bound, val_bound, test_bound
 
-#     def __len__(self):
-#         return math.ceil(len(self.order) / self.batch_size)
-    
-#     def __next__(self):
-#         if self.batch_i < len(self):
-#             self.batch_i += 1
-
-#             order_slice = self.order[self.batch_size * (self.batch_i - 1): self.batch_size * self.batch_i]
-
-#             return [self.dataset[idx] for idx in order_slice]
-#         else:
-#             raise StopIteration()
+def how_many_images(full_annotation_path):
+    with open(full_annotation_path, 'r') as fp:
+        return len(json.load(fp))
 
 class MPIIDataset(Dataset):
-    def __init__(self, json_path, image_path, transform=None):
-        '''
-            json_path (string): Path to the fullannotations.json
-            image_path (string): Path to the image folder
-        '''
-        with open(json_path, 'r') as fp:
-            self.json_file = json.load(fp)
-        
-        self.image_path = image_path
-        self.transform = transform
-        self.default_transform = transforms.ToTensor()
+    def __init__(self, full_annotation, table_annotation, table_tensor, image_dir, bounds):
+        assert len(full_annotation) == len(table_annotation)
+
+        self.full_annotation = full_annotation
+        self.table_annotation = table_annotation
+        self.table_tensor = table_tensor
+        self.minimum, self.maximum = bounds
+        self.image_dir = image_dir
+
+        self.transform = transforms.ToTensor()
     
     def __len__(self):
-        return len(self.json_file)
+        return (self.maximum - self.minimum)
     
-    # def __getitem__(self, idx):
+    def __getitem__(self, i):
+        assert i >= 0 or i < len(self)
+        i = i + self.minimum # mapp the index
 
-    #     if isinstance(idx, int):
-    #         idx = [idx]
+        full_annotation_object = self.full_annotation[i]
+        table_annotation_object = self.table_annotation[i]
 
-    #     annotations = itemgetter(*idx)(self.json_file)
+        assert full_annotation_object['image_name'] == table_annotation_object['image_name']
+        image_name = full_annotation_object['image_name']
 
-    #     if not isinstance(annotations, list):
-    #         annotations = [annotations]
-        
-    #     image_path = [path.join(self.image_path, anno['image_name']) for anno in annotations] 
+        pil_image = Image.open(path.join(self.image_dir, image_name))
+        image_tensor = self.transform(pil_image)
 
-    #     if self.transform:
-    #         images = [self.transform(self.default_transform(Image.open(fn))) for fn in image_path]
-    #     else:
-    #         images = [self.default_transform(Image.open(fn)) for fn in image_path]
+        truth_table_indexes = []
 
-        
-    #     return {'images': images, 'annotations': annotations}
+        for full_people, table_people in zip(full_annotation_object['people'], table_annotation_object['people']):
+            truth_table_indexes.append(table_people['i'])
 
-    def __getitem__(self, idx:int):
-        annotation = self.json_file[idx]
-        image_path = path.join(self.image_path, annotation['image_name'])
-        image = self.default_transform(Image.open(image_path))
+        truth_tables = self.table_tensor[truth_table_indexes]
 
-        if self.transform:
-            image = self.transform(image)
-
-        return (image, annotation)
+        return image_tensor, truth_tables, full_annotation_object, table_annotation_object
 
 
-if __name__ == '__main__':
-    image_path = './images/mpii_resized'
-    json_path = './annotations/mpii/fullannotations.json'
 
-    dataset = MPIIDataset(json_path, image_path)
-
-    # These values are optimal for me!
-    torch_dataloader = DataLoader(dataset, batch_size=64, shuffle=False, num_workers=4, collate_fn=lambda x: x)
-
-
-    for batch in tqdm(torch_dataloader):
-        for (image, annotation) in batch:
-            pass
-        
