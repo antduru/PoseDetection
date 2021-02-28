@@ -26,6 +26,8 @@ class CustomLoss():
         truth_table[:, :, 0] = (bbox['x2'] - bbox['x1']) * (truth_table[:, :, 0] - bbox['x1']) / 256 # convert this to relative coordinates
         truth_table[:, :, 1] = (bbox['y2'] - bbox['y1']) * (truth_table[:, :, 1] - bbox['y1']) / 256
 
+        print()
+
         output_table = output_table[5].reshape(-1, 6)
         truth_table = truth_table[5].reshape(-1, 6)
 

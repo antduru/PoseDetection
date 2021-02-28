@@ -118,6 +118,6 @@ class SinglePersonPoseEtimator(nn.Module):
     6 means; x, y coordinates, xd, yd direction vectors, c confidence, and m binary mask.
         x, y: coordinates of the joint
         xd, yd: direction vector of the joint. For example, knees point to the hips. (See the pointing diagram)
-        c: confidence value
+        v: visible value
         m: binary mask, if network is not sure this is detected, then fires this neuron.
 '''

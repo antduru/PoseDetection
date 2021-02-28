@@ -8,6 +8,14 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 from datetime import datetime
+import math 
+
+triangle(0, 
+    0, 
+    math.cos(math.radians(omega1)), 
+    math.sin(math.radians(omega1)), 
+    math.cos(math.radians(omega2)), 
+    math.sin(math.radians(omega2)))
 
 FULL_ANNOTATION_PATH = './annotations/mpii/fullannotations.json'
 TABLE_ANNOTATION_PATH = './annotations/mpii/jointtable.json'
