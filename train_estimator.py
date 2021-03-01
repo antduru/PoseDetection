@@ -10,12 +10,12 @@ import os
 from datetime import datetime
 import math 
 
-triangle(0, 
-    0, 
-    math.cos(math.radians(omega1)), 
-    math.sin(math.radians(omega1)), 
-    math.cos(math.radians(omega2)), 
-    math.sin(math.radians(omega2)))
+# triangle(0, 
+#     0, 
+#     math.cos(math.radians(omega1)), 
+#     math.sin(math.radians(omega1)), 
+#     math.cos(math.radians(omega2)), 
+#     math.sin(math.radians(omega2)))
 
 FULL_ANNOTATION_PATH = './annotations/mpii/fullannotations.json'
 TABLE_ANNOTATION_PATH = './annotations/mpii/jointtable.json'
@@ -58,7 +58,7 @@ test_dataloader  = DataLoader(test_dataset, batch_size=TEST_BATCH, shuffle=True,
 previous_saves = os.listdir(TRAIN_DIR)
 model = models.SinglePersonPoseEtimator()
 criterion = loss.CustomLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 train_loss_array = []
 val_loss_array = []
 
@@ -110,7 +110,7 @@ for epoch in range(EPOCH):
 
                 with torch.no_grad():
                     output_table = model(image_tensor, detected_bounding_box)
-                    loss = criterion(output_table, truth_table, detected_bounding_box)
+                    loss = criterion(output_table, truth_table)
 
                 val_loss_array.append({
                     'loss': loss.item(),

@@ -13,8 +13,8 @@ import json
     This module contains a custom loss function
 '''
 class MyCrossEntropyOperation():
-    def __call__(self, Yhat, Y):
-        return - Y * torch.log(Yhat) + (1 - Y) * torch.log(1 - Yhat)
+    def __call__(self, Yhat, Y, epsilon=0.0001):
+        return - Y * torch.log(Yhat + epsilon) + (1 - Y) * torch.log(1 - Yhat + epsilon)
 
 class MyDotOperation():
     def __call__(self, Yhat, Y):
@@ -49,23 +49,24 @@ class CustomLoss():
 
         # return tru_mask
 
-        full_loss    = torch.where(tru_mask >  0.5, 1., 0.) # truth_table[:, :, (3,)] > 0.5
-        m_only_loss  = torch.where(torch.where(tru_mask >  0.5, 0., 1.) * out_mask >  0.5, 1., 0.) # truth_table[:, :, (3,)] < 0.5 and output_table[:, :, (3,)] > 0.5
-        no_loss      = torch.where(torch.where(tru_mask >  0.5, 0., 1.) * out_mask <= 0.5, 1., 0.) # truth_table[:, :, (3,)] < 0.5 and output_table[:, :, (3,)] < 0.5
+        # full_loss    = torch.where(tru_mask >  0.5, 1., 0.) # truth_table[:, :, (3,)] > 0.5
+        # m_only_loss  = torch.where(torch.where(tru_mask >  0.5, 0., 1.) * out_mask >  0.5, 1., 0.) # truth_table[:, :, (3,)] < 0.5 and output_table[:, :, (3,)] > 0.5
+        no_loss      = torch.where(tru_mask * torch.where(torch.abs(out_mask) > 0.5, 1., 0.) < 0.5, 0., 1.) # truth_table[:, :, (3,)] < 0.5 and output_table[:, :, (3,)] < 0.5
 
-        total_loss = (dirjovis_loss * m_only_loss + mask_loss) * no_loss
+        total_loss = (dirjovis_loss + mask_loss) * no_loss
         '''
                 out m | truth m
                   1        1    -> apply loss to all
                   1        0    -> apply loss to all
-                  0        1    -> apply loss only to m
+                  0        1    -> apply loss to all
                   0        0    -> apply no loss
         '''
         return torch.sum(total_loss)
 
 if __name__ == "__main__":
-    output_table = torch.random((9, 16, 6)) * 0.5
-    truth_table  = torch.random((9, 16, 6)) * 0.5
+    output_table = nn.Sigmoid()(torch.rand((9, 16, 6)))
+    truth_table  = nn.Sigmoid()(torch.rand((9, 16, 6)))
+    
 
     loss = CustomLoss()
 

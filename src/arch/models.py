@@ -37,13 +37,20 @@ class CustomVgg19(nn.Module):
 #     return crop.resize(1, 3, *SIZE)
 
 def resized_crop(original_tensor, bbox):
-    c, height, width = original_tensor.shape
-    
-    top = int(bbox['y1'] * height)
-    left = int(bbox['x1'] * width)
-    height = int((bbox['y2'] - bbox['y1']) * height)
-    width = int((bbox['x2'] - bbox['x1']) * width)
-    cropped_tensor = resized_crop(original_tensor, top, left, height, width, IN_SHAPE)
+    if bbox:
+        c, height, width = original_tensor.shape
+        
+        top = int(bbox['y1'] * height)
+        left = int(bbox['x1'] * width)
+        height = int((bbox['y2'] - bbox['y1']) * height)
+        width = int((bbox['x2'] - bbox['x1']) * width)
+    else:
+        top = 0
+        left = 0
+        height = 100
+        width = 100
+
+    cropped_tensor = F.resized_crop(original_tensor, top, left, height, width, IN_SHAPE)
     return cropped_tensor
 
 class SinglePersonPoseEtimator(nn.Module):
@@ -84,7 +91,10 @@ class SinglePersonPoseEtimator(nn.Module):
     def forward(self, original_tensor, bbox):
         cropped_tensor = resized_crop(original_tensor, bbox)
 
-        out0 =  self.vgg(original_tensor)
+        if cropped_tensor.ndim != 4:
+            cropped_tensor = torch.unsqueeze(cropped_tensor, 0)
+
+        out0 =  self.vgg(cropped_tensor)
         out1 = self.conv1(out0)
         out2 = self.linear1(out1)
 
@@ -116,4 +126,4 @@ if __name__ == "__main__":
         resized_tensor = torch.zeros((1, 3, 226, 226))
         out = model(resized_tensor, None)
 
-        print(out[5, 0])
+        print(out)
