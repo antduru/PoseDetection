@@ -66,10 +66,10 @@ def generate_joint_table(current_person_object, joint_dict):
 
             joint_table[0, 5, joint_id, 0] = pos_x
             joint_table[0, 5, joint_id, 1] = pos_y
-            joint_table[0, 5, joint_id, 2] = d_x
-            joint_table[0, 5, joint_id, 3] = d_y
-            joint_table[0, 5, joint_id, 4] = v
-            joint_table[0, 5, joint_id, 5] = 1
+            joint_table[0, 5, joint_id, 2] = v
+            joint_table[0, 5, joint_id, 3] = 1
+            joint_table[0, 5, joint_id, 4] = d_x
+            joint_table[0, 5, joint_id, 5] = d_y
 
     return joint_table
 
@@ -89,10 +89,10 @@ def mutate_joint_table(joint_table, current_person, neigbor_person, diagonal_id,
 
         joint_table[0, diagonal_id - 1, joint_id, 0] = pos_x
         joint_table[0, diagonal_id - 1, joint_id, 1] = pos_y
-        joint_table[0, diagonal_id - 1, joint_id, 2] = d_x
-        joint_table[0, diagonal_id - 1, joint_id, 3] = d_y
-        joint_table[0, diagonal_id - 1, joint_id, 4] = v
-        joint_table[0, diagonal_id - 1, joint_id, 5] = 1
+        joint_table[0, diagonal_id - 1, joint_id, 2] = v
+        joint_table[0, diagonal_id - 1, joint_id, 3] = 1
+        joint_table[0, diagonal_id - 1, joint_id, 4] = d_x
+        joint_table[0, diagonal_id - 1, joint_id, 5] = d_y
 
     return joint_table 
 
