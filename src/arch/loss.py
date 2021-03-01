@@ -16,30 +16,59 @@ class MyCrossEntropyOperation():
     def __call__(self, Yhat, Y):
         return - Y * torch.log(Yhat) + (1 - Y) * torch.log(1 - Yhat)
 
+class MyDotOperation():
+    def __call__(self, Yhat, Y):
+        return torch.sum(Yhat * Y, dim=2, keepdim=True)
+
 class CustomLoss():
     def __init__(self):
         self.cross = MyCrossEntropyOperation()
+        self.dot = MyDotOperation()
         self.means = nn.MSELoss()
     
-    def __call__(self, output_table, truth_table, bbox):
-        truth_table = truth_table.clone()
-        truth_table[:, :, 0] = (bbox['x2'] - bbox['x1']) * (truth_table[:, :, 0] - bbox['x1']) / 256 # convert this to relative coordinates
-        truth_table[:, :, 1] = (bbox['y2'] - bbox['y1']) * (truth_table[:, :, 1] - bbox['y1']) / 256
+    def __call__(self, output_table, truth_table):
 
-        print()
+        out_dirr = output_table[:, :, (4, 5)].clone()
+        out_coor = output_table[:, :, (0, 1)].clone()
+        out_viss = output_table[:, :, (2,)].clone()
+        out_mask = output_table[:, :, (3,)].clone()
 
-        output_table = output_table[5].reshape(-1, 6)
-        truth_table = truth_table[5].reshape(-1, 6)
+        tru_dirr = truth_table[:, :, (4, 5)].clone()
+        tru_coor = truth_table[:, :, (0, 1)].clone()
+        tru_viss = truth_table[:, :, (2,)].clone()
+        tru_mask = truth_table[:, :, (3,)].clone()
 
-        true_mask = truth_table[:, 5]
-        out_mask = output_table[:, 5]
+        direction_loss = torch.sum(out_dirr * tru_dirr, dim=2, keepdim=True)
+        joint_loss = torch.abs(out_coor - tru_coor)
+        visible_loss = self.cross(out_viss, tru_viss)
 
-        coordinates_error = self.means(output_table[:, :4], truth_table[:, :4])
-        visible_error = self.cross(output_table[:, 4], truth_table[:, 4])
-        mask_error = self.cross(out_mask, true_mask)
+        dirjovis_loss = torch.sum(direction_loss + joint_loss + visible_loss, dim=2, keepdim=True)
 
-        temp = mask_error + (coordinates_error + visible_error) * true_mask
-        return torch.sum(temp)
+        # 
+        mask_loss = self.cross(out_mask, tru_mask)
 
+        # return tru_mask
 
+        full_loss    = torch.where(tru_mask >  0.5, 1., 0.) # truth_table[:, :, (3,)] > 0.5
+        m_only_loss  = torch.where(torch.where(tru_mask >  0.5, 0., 1.) * out_mask >  0.5, 1., 0.) # truth_table[:, :, (3,)] < 0.5 and output_table[:, :, (3,)] > 0.5
+        no_loss      = torch.where(torch.where(tru_mask >  0.5, 0., 1.) * out_mask <= 0.5, 1., 0.) # truth_table[:, :, (3,)] < 0.5 and output_table[:, :, (3,)] < 0.5
 
+        total_loss = (dirjovis_loss * m_only_loss + mask_loss) * no_loss
+        '''
+                out m | truth m
+                  1        1    -> apply loss to all
+                  1        0    -> apply loss to all
+                  0        1    -> apply loss only to m
+                  0        0    -> apply no loss
+        '''
+        return torch.sum(total_loss)
+
+if __name__ == "__main__":
+    output_table = torch.random((9, 16, 6)) * 0.5
+    truth_table  = torch.random((9, 16, 6)) * 0.5
+
+    loss = CustomLoss()
+
+    out = loss(output_table, truth_table)
+
+    print(out)

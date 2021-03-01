@@ -186,6 +186,29 @@ def main():
         for person_object in image_object['people']:
             person_object['bbox'] = get_bbox(person_object, image_object)
 
+    for image_object in processed_json:
+        width  = image_object['image_shape']['width']
+        height = image_object['image_shape']['height']
+        for person_object in image_object['people']:
+            # normalize bounding box
+            bbox = person_object['bbox']
+            bbox['x1'] = bbox['x1'] / width
+            bbox['y1'] = bbox['y1'] / height
+            bbox['x2'] = bbox['x2'] / width
+            bbox['y2'] = bbox['y2'] / height
+
+            # normalzie head box
+            head = person_object['head_coordinates']
+            head['x1'] = head['x1'] / width
+            head['y1'] = head['y1'] / height
+            head['x2'] = head['x2'] / width
+            head['y2'] = head['y2'] / height
+
+            # normalzie joint coordinates
+            for joint_object in person_object['joints']:
+                joint_object['x'] = joint_object['x'] / width
+                joint_object['y'] = joint_object['y'] / height
+
     print('Saving processed json file')
 
     with open(processedjson_path, 'w+') as fp:

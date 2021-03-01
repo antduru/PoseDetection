@@ -88,7 +88,8 @@ for epoch in range(EPOCH):
 
                 optimizer.zero_grad()
                 output_table = model(image_tensor, detected_bounding_box)
-                loss = criterion(output_table, truth_table, detected_bounding_box)
+                # loss = criterion(output_table, truth_table, detected_bounding_box)
+                loss = criterion(output_table, truth_table)
                 loss.backward()
                 optimizer.step()
 
