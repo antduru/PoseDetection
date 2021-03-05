@@ -163,16 +163,44 @@ class SinglePersonPoseEtimator(nn.Module):
 
         # convert the boi
         _, img_height, img_width = original_tensor.shape
-        bbox_width = bbox['x2'] - bbox['x1']
-        bbox_height = bbox['y2'] - bbox['y1']
+        bbox_width = (bbox['x2'] - bbox['x1'])
+        bbox_height = (bbox['y2'] - bbox['y1'])
 
-        out_coor_x = bbox_width * out3[:, :, (0,)] / (IN_SHAPE[1] * img_width)
-        out_coor_y = bbox_height * out3[:, :, (1,)] / (IN_SHAPE[0] * img_height)
+        bbox_x1 = bbox['x1']
+        bbox_y1 = bbox['y1']
+
+        out_coor_x = bbox_width *  (out3[:, :, (0,)] / IN_SHAPE[1]) + bbox_x1
+        out_coor_y = bbox_height * (out3[:, :, (1,)] / IN_SHAPE[0]) + bbox_y1
 
         out = torch.cat([out_coor_x, out_coor_y, out3[:, :, 2:]], dim=2)
         # end conver to boi
 
-        return out, bbox
+        return out, bbox # normalized bbox
+
+def estimate_for_all(input_tensor, model, people_list):
+    return_list = [] # (output_table, bbox)
+    
+    for person_object in people_list:
+        in_bbox = person_object['bbox']
+        original_tensor = input_tensor
+        
+        output_table, out_bbox = model(original_tensor, in_bbox)
+        
+        return_list.append((output_table, out_bbox))
+    return return_list
+
+def __test_estimate_for_all(estimate_for_all, image_index, model):
+    model.eval()
+    
+    image_object = json_list[image_index]
+    image_path = os.path.join(images_path, image_object['image_name'])
+
+    input_tensor = F.to_tensor(Image.open(image_path))
+    people_list = image_object['people']
+    
+    with torch.no_grad():
+        return estimate_for_all(input_tensor, model, people_list)
+
 '''
     The output of the model is 9x16x6
 
@@ -185,7 +213,7 @@ class SinglePersonPoseEtimator(nn.Module):
         xd, yd: direction vector of the joint. For example, knees point to the hips. (See the pointing diagram)
 '''
 
-if __name__ == "__main__":
+if __name__ == "__main__" and False:
     with open('./annotations/mpii/fullannotations.json') as fp:
         annotation_list = json.load(fp)
 
