@@ -337,7 +337,7 @@ def test_visualize_ds(visualize, image_index=0):
     
     return visualize(input_tensor, people_list)
 
-def test_visualize_model(visualize, model, image_index=0, sppe_index=5):
+def test_visualize_model(visualize, model, image_index=0, sppe_index=0):
     
     image_object = json_list[image_index]
     image_path = os.path.join(images_path, image_object['image_name'])

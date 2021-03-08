@@ -13,36 +13,54 @@ import math
 
 # do not change ! iof you do change the loss module also
 IN_SHAPE = (226, 226)
-OUT_SHAPE = (9, 16, 6)
+OUT_SHAPE = (1, 16, 6)
 
 '''
     This module contains a custom loss function
 '''
-class MyCrossEntropyOperation():
+class MyCrossEntropyLoss():
     def __call__(self, Yhat, Y, epsilon=0.0001):
-        return - Y * torch.log(Yhat + epsilon) + (1 - Y) * torch.log(1 - Yhat + epsilon)
+        return - Y * torch.log(Yhat + epsilon) - (1 - Y) * torch.log(1 - Yhat + epsilon)
+
+class MyAngleLoss():
+    def __init__(self, a=10):
+        '''
+            a: intensifier of the  of the cost
+        '''
+        self.a = a
+
+    def __call__(self, out_dirr, tru_dirr, epsilon=0.0001):
+        dots =  torch.sum(out_dirr * tru_dirr, dim=2, keepdim=True)
+        angles = torch.acos(dots) # get the angle between direction vectors
+
+        first_half = - torch.log(math.pi / 2 - angles + epsilon)
+        second_half = - torch.log(math.pi / 2 - (math.pi / 2 - angles) + epsilon)
+        return 0
+        
+
 
 class CustomLoss():
     def __init__(self):
-        self.cross = MyCrossEntropyOperation()
+        self.cross = MyCrossEntropyLoss()
+        self.angle = MyAngleLoss()
         self.means = nn.MSELoss()
     
     def __call__(self, output_table, truth_table):
 
         # for now only consider joint loss
         # print(output_table.shape)
-        out_dirr = output_table[5:6, :, 4:6]  # direction vector
-        out_coor = output_table[5:6, :, 0:2]  # coordinate vector
-        out_viss = output_table[5:6, :, 2:3]    # visible vector
-        out_mask = output_table[5:6, :, 3:4]    # mask vector
+        out_dirr = output_table[0:1, :, 4:6]  # direction vector
+        out_coor = output_table[0:1, :, 0:2]  # coordinate vector
+        out_viss = output_table[0:1, :, 2:3]  # visible vector
+        out_mask = output_table[0:1, :, 3:4]  # mask vector
 
         tru_dirr = truth_table[5:6, :, 4:6] 
         tru_coor = truth_table[5:6, :, 0:2] 
         tru_viss = truth_table[5:6, :, 2:3] 
         tru_mask = truth_table[5:6, :, 3:4] 
 
-        direction_loss = 1 - torch.sum(out_dirr * tru_dirr, dim=2, keepdim=True) # same as loss = 1 - dot(Out, True)
-        joint_loss = torch.abs(out_coor - tru_coor)
+        direction_loss = self.angle(out_dirr, tru_dirr)**2 # 1 - torch.sum(out_dirr * tru_dirr, dim=2, keepdim=True) # same as loss = 1 - dot(Out, True)
+        joint_loss = torch.abs(out_coor - tru_coor)**2
         visible_loss = self.cross(out_viss, tru_viss)
 
         # print(tru_coor)
@@ -57,9 +75,12 @@ class CustomLoss():
 
         # full_loss    = torch.where(tru_mask >  0.5, 1., 0.) # truth_table[:, :, (3,)] > 0.5
         # m_only_loss  = torch.where(torch.where(tru_mask >  0.5, 0., 1.) * out_mask >  0.5, 1., 0.) # truth_table[:, :, (3,)] < 0.5 and output_table[:, :, (3,)] > 0.5
-        no_loss      = torch.where(tru_mask * torch.where(torch.abs(out_mask) > 0.5, 1., 0.) < 0.5, 0., 1.) # truth_table[:, :, (3,)] < 0.5 and output_table[:, :, (3,)] < 0.5
+        # no_loss      = tru_mask * out_mask # torch.where(tru_mask < 0.5, 0., 1.) # truth_table[:, :, (3,)] < 0.5 and output_table[:, :, (3,)] < 0.5
 
-        total_loss = (dirjovis_loss + mask_loss) * no_loss
+        no_loss1      = torch.where(tru_mask < 0.5, 1.0, 0.0)
+        no_loss2      = torch.where(out_mask < 0.5, 1.0, 0.0)
+
+        total_loss = (dirjovis_loss + mask_loss) * torch.where(no_loss1 * no_loss2 < 0.5, 1., 0.)
         '''
                 out m | truth m
                   1        1    -> apply loss to all
@@ -116,29 +137,48 @@ class SinglePersonPoseEtimator(nn.Module):
 
         self.vgg =  CustomVgg19()
 
-        # freeze the vgg network
-        for p in self.vgg.parameters():
-            p.requires_grad = False
+        # not freeze the vgg network
+        # for p in self.vgg.parameters():
+        #     p.requires_grad = False
 
         self.conv1 = nn.Sequential(
+            nn.Tanh(),
             nn.Conv2d(512, 512, 7, 1, 2),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Conv2d(512, 1024, 3, 1, 1),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Conv2d(1024, 1024, 1, 1, 0),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Conv2d(1024, 1024, 3, 1, 1),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Conv2d(1024, 1024, 1, 1, 0),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.MaxPool2d(2, 2)
         )
+
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(1024, 1024, 1, 1, 0),
+            nn.Tanh(),
+            nn.Conv2d(1024, 1024, 3, 1, 1),
+            nn.Tanh(),
+            nn.Conv2d(1024, 1024, 1, 1, 0),
+            nn.Tanh(),
+            nn.Conv2d(1024, 1024, 3, 1, 1),
+            nn.Tanh(),
+            nn.Conv2d(1024, 1024, 1, 1, 0),
+            nn.Tanh()
+        )
+
         self.linear1 = nn.Sequential(
             nn.Flatten(),
             nn.Linear(4096, 2048),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(2048, 2048),
-            nn.ReLU(),
+            nn.Tanh(),
+            nn.Linear(2048, 2048),
+            nn.Tanh(),
+            nn.Linear(2048, 2048),
+            nn.Tanh(),
             nn.Linear(2048, math.prod(OUT_SHAPE))
         )
         self.sigmoid1 = nn.Sigmoid()
@@ -152,9 +192,10 @@ class SinglePersonPoseEtimator(nn.Module):
 
         out0 =  self.vgg(cropped_tensor)
         out1 = self.conv1(out0)
-        out2 = self.linear1(out1)
+        out2a = self.conv2(out1)
+        out2b = self.linear1(out2a)
 
-        out3 = torch.reshape(out2, OUT_SHAPE)
+        out3 = torch.reshape(out2b, OUT_SHAPE)
 
         helper1 = self.sigmoid1(out3[:, :, :4])     # activate x, y, v, m
         helper2 = self.tanh1(out3[:, :, 4:])              # activate dx and dy
@@ -169,8 +210,8 @@ class SinglePersonPoseEtimator(nn.Module):
         bbox_x1 = bbox['x1']
         bbox_y1 = bbox['y1']
 
-        out_coor_x = bbox_width *  (out3[:, :, (0,)] / IN_SHAPE[1]) + bbox_x1
-        out_coor_y = bbox_height * (out3[:, :, (1,)] / IN_SHAPE[0]) + bbox_y1
+        out_coor_x = bbox_width * out3[:, :, (0,)] + bbox_x1
+        out_coor_y = bbox_height * out3[:, :, (1,)] + bbox_y1
 
         out = torch.cat([out_coor_x, out_coor_y, out3[:, :, 2:]], dim=2)
         # end conver to boi
